@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: voipms-sync-cronjob
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+            - name: recordings-storage
+              persistentVolumeClaim:
+                claimName: voip-recordings-pvc
+            - name: config-volume
+              emptyDir: {}
+          initContainers:
+            - name: config-initializer
+              image: busybox:1.35
+              command: ['sh', '-c']
+              args:
+              - |
+                echo "[voipms]" > /config/config.ini
+                echo "username = $(VOIPMS_USERNAME)" >> /config/config.ini
+                echo "password = $(VOIPMS_PASSWORD)" >> /config/config.ini
+                echo "[paths]" >> /config/config.ini
+                echo "download_dir = /data/recordings" >> /config/config.ini
+                echo "state_file = /data/state.json" >> /config/config.ini
+              env:
+                - name: VOIPMS_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: voipms-credentials
+                      key: username
+                - name: VOIPMS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: voipms-credentials
+                      key: password
+              volumeMounts:
+                - name: config-volume
+                  mountPath: /config
+          containers:
+            - name: voipms-sync-container
+              image: your-repo/voipms-sync:latest # IMPORTANT: Replace with your actual image from a registry
+              imagePullPolicy: IfNotPresent
+              volumeMounts:
+                - name: recordings-storage
+                  mountPath: /data # The script will save recordings and state here
+                - name: config-volume
+                  mountPath: /app/config.ini # Mount the generated config file directly
+                  subPath: config.ini
