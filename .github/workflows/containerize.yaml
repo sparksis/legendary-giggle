@@ -1,0 +1,59 @@
+name: Version, Build and Push Container
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  version-build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to push tags
+      packages: write # Required to push packages to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for semver-action to analyze commit history
+
+      - name: Calculate next version
+        id: semver
+        uses: ietf-tools/semver-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          noVersionBumpBehavior: patch
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.nextStrict }}
+            ghcr.io/${{ github.repository }}:latest
+        # This step builds the image and tags it with the new version and 'latest'.
+
+      - name: Install Flux CLI
+        uses: fluxcd/flux2/action@main
+
+      - name: Push Kustomization artifact to GHCR
+        run: |
+          flux push artifact oci://ghcr.io/${{ lower(github.repository) }}/manifests:${{ steps.semver.outputs.nextStrict }} \
+            --path="./flux" \
+            --source="${{ github.server_url }}/${{ github.repository }}" \
+            --revision="${{ steps.semver.outputs.next }}"
+
+      - name: Create and push Git tag
+        # This step runs only after all artifacts have been successfully pushed.
+        run: |
+          git tag ${{ steps.semver.outputs.next }}
+          git push origin ${{ steps.semver.outputs.next }}
