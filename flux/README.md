@@ -19,18 +19,22 @@ This Kustomize base defines the following Kubernetes resources:
 
 ## Configuration Steps
 
-### 1. Update the Container Image
+### 1. Configure Image Automation (Optional)
 
-In `cronjob.yaml`, you **must** update the `image` field to point to the container image you built and pushed to your registry.
+The `cronjob.yaml` manifest is already configured for Flux Image Update Automation. When a new version of the application image is pushed to the container registry, Flux can automatically update the `image` tag and commit the change back to your repository.
 
+To enable this, you will need to create `ImageRepository` and `ImagePolicy` resources in your cluster. See the [Flux Image Update Automation documentation](https://fluxcd.io/flux/guides/image-update/) for a detailed guide.
+
+The image line in `cronjob.yaml` that Flux will update is:
 ```yaml
 # flux/cronjob.yaml
 ...
 containers:
   - name: voipms-sync-container
-    image: your-repo/voipms-sync:latest # <-- CHANGE THIS
+    image: your-repo/voipms-sync:latest # {"$imagepolicy": "voip-sync:voipms-sync"}
 ...
 ```
+You will need to create an `ImagePolicy` named `voipms-sync` in the `voip-sync` namespace for this to work.
 
 ### 2. Create the Credentials Secret
 
@@ -59,33 +63,45 @@ Apply this file to your cluster: `kubectl apply -f voipms-credentials-secret.yam
 
 For a more secure, GitOps-friendly approach, it is highly recommended to manage this secret using a tool like [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) or [SOPS](https://github.com/mozilla/sops).
 
-## Deployment with Flux
+## Deployment with Flux (from OCI)
 
-To deploy this application using Flux, you will create a `Kustomization` resource on your cluster that points to this directory in your Git repository.
+The CI pipeline for this repository publishes the Kustomize configuration in this directory as an OCI artifact. You should configure your Flux deployment to pull from this OCI artifact instead of directly from the Git repository.
 
-Here is a sample `Kustomization` manifest. This manifest demonstrates **variable substitution** (interpolations), a feature of Flux, to dynamically set the target namespace.
+This approach decouples the deployment from the source code, leading to more reliable and secure deployments.
+
+First, you need to create an `OCIRepository` source in your cluster to tell Flux where to find the manifests.
 
 ```yaml
-# cluster-sync.yaml
+# oci-source.yaml
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: voipms-sync-manifests
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: oci://ghcr.io/your-org/flux-manifests # <-- CHANGE THIS
+  ref:
+    semver: ">=0.1.0"
+```
+
+Next, create a `Kustomization` that points to this `OCIRepository` source.
+
+```yaml
+# kustomization.yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: voipms-sync
   namespace: flux-system
 spec:
-  interval: 10m0s
-  path: ./flux # Path to this directory in your Git repo
+  interval: 10m
   prune: true
   sourceRef:
-    kind: GitRepository
-    name: your-git-repo # The name of your Flux GitRepository source
-  targetNamespace: "voip-sync-${CLUSTER_NAME}" # Example of interpolation
-  vars:
-    - name: CLUSTER_NAME
-      value: "production"
+    kind: OCIRepository
+    name: voipms-sync-manifests # Must match the name of the OCIRepository above
+  targetNamespace: voip-sync
 ```
-
-In this example, Flux will replace `${CLUSTER_NAME}` with `"production"`, deploying the resources to the `voip-sync-production` namespace. This allows you to reuse the same manifests across different environments (e.g., staging, production).
 
 ## How the `CronJob` Works
 

@@ -42,8 +42,18 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
         # This step builds the image and tags it with the new version and 'latest'.
 
+      - name: Install Flux CLI
+        uses: fluxcd/flux2/action@main
+
+      - name: Push Kustomization artifact to GHCR
+        run: |
+          flux push artifact oci://ghcr.io/${{ github.repository_owner | lower }}/flux-manifests:${{ steps.semver.outputs.nextStrict }} \
+            --path="./flux" \
+            --source="${{ github.server_url }}/${{ github.repository }}" \
+            --revision="${{ steps.semver.outputs.next }}"
+
       - name: Create and push Git tag
-        # This step runs only after the image has been successfully pushed.
+        # This step runs only after all artifacts have been successfully pushed.
         run: |
           git tag ${{ steps.semver.outputs.next }}
           git push origin ${{ steps.semver.outputs.next }}
