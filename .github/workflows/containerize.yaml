@@ -38,12 +38,12 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.next_version }}
+            ghcr.io/${{ github.repository }}:${{ steps.semver.outputs.nextStrict }}
             ghcr.io/${{ github.repository }}:latest
         # This step builds the image and tags it with the new version and 'latest'.
 
       - name: Create and push Git tag
         # This step runs only after the image has been successfully pushed.
         run: |
-          git tag ${{ steps.semver.outputs.next_version }}
-          git push origin ${{ steps.semver.outputs.next_version }}
+          git tag ${{ steps.semver.outputs.next }}
+          git push origin ${{ steps.semver.outputs.next }}
