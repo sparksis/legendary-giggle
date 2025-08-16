@@ -43,7 +43,7 @@ spec:
                   mountPath: /config
           containers:
             - name: voipms-sync-container
-              image: your-repo/voipms-sync:latest # IMPORTANT: Replace with your actual image from a registry
+              image: your-repo/voipms-sync:latest # {"$imagepolicy": "voip-sync:voipms-sync"}
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
