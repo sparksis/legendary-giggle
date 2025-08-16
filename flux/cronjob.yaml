@@ -45,6 +45,13 @@ spec:
             - name: voipms-sync-container
               image: your-repo/voipms-sync:latest # IMPORTANT: Replace with your actual image from a registry
               imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
               volumeMounts:
                 - name: recordings-storage
                   mountPath: /data # The script will save recordings and state here
