@@ -10,9 +10,8 @@ COPY requirements.txt .
 # Install the Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application script and configuration file
+# Copy the application script
 COPY sync_recordings.py .
-COPY config.ini .
 
 # Set the command to run the script when the container starts
 # Note: The user will need to mount volumes for `recordings` and `state.json`
