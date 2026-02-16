@@ -2,7 +2,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: legendary-giggle
-  description: "This project provides an idempotent, resilient, and memory-efficient Python script to synchronize VoIP.ms call recordings to a local directory, configurable via `config.ini` and deployable with Docker."
+  description: "This project offers a robust, idempotent, and configurable Python script for synchronizing VoIP.ms call recordings to a local directory, with support for Docker deployment and `cron` scheduling."
   annotations:
     github.com/project-slug: sparksis/legendary-giggle
 spec:
